@@ -1,0 +1,350 @@
+---
+title: "STA258 Course Project Part 3"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### Current Group members:
+- Xinhao hou
+- Churun Pang
+- Jinghong Liang
+- Yuanfei Jing
+- Diqi Que
+
+
+```{r, include=FALSE}
+
+library(tidyverse)
+library(EnvStats)
+library(mosaic)
+
+url <- "https://raw.githubusercontent.com/lizawood/apps-and-games/master/PC_Games/PCgames_2004_2018_raw.csv"
+# read in raw data
+raw_df <- url %>% read_csv() %>% janitor::clean_names() 
+#Cleaning data as per instructions
+clean_df <- raw_df %>% 
+  mutate(price = as.numeric(price),
+         score_rank = word(score_rank_userscore_metascore, 1),
+         average_playtime = word(playtime_median, 1),
+         median_playtime = word(playtime_median, 2),
+         median_playtime = str_remove(median_playtime, "\\("),
+         median_playtime = str_remove(median_playtime, "\\)"),
+         average_playtime = 60 * as.numeric(str_sub(average_playtime,
+                                                    1, 2)) +
+           as.numeric(str_sub(average_playtime, 4, 5)),
+         median_playtime = 60 * as.numeric(str_sub(median_playtime,
+                                                   1, 2)) +
+           as.numeric(str_sub(median_playtime, 4, 5)),
+         metascore = as.double(str_sub(score_rank_userscore_metascore, 
+                                       start = -4, end = -3)))
+project_data <- clean_df %>%
+  dplyr::select(price,metascore)
+str(project_data)
+games <- na.omit(project_data)	
+
+```
+
+## Correlation between price and meta score
+
+### Null and alternative hypotheses 
+
+- Null Hypothesis: There is no linear relationship between Price and Meta Score
+- Alternative Hypothesis: There is linear relationship between Price and Meta Score
+
+### Assumptions 
+The Pearson correlation based on following assumptions
+
+1. The two variables should be numeric (This assumption is already satisfied).
+2. There should be no outliers (for this, we will make the boxplots of data to check the outliers). 
+
+
+
+```{r, echo=FALSE}
+boxplot(games,col="dark blue",ylab="Values", main="Boxplots of Variables")
+games_new <- games[!(games$price %in% boxplot(games$price)$out),]
+
+```
+
+From the boxplots, it can be observed that the variable `Price` have some potential outliers, that needs to be removed to fulfill the assumption of Correlation test. The `Meta Score` variable showing some points as outliers, but these are not potential, and there is no need to remove them.  
+
+
+3. Both variables should be normally distributed.
+
+For this purpose we will make the histogram plots of both variables.
+
+```{r}
+
+par(mfrow=c(1,2))
+#Histograms
+hist(games_new$price,col="dark blue",ylab="Count", main="Histogram of Price",xlab="Price")
+hist(games_new$metascore,col="dark blue",ylab="Count", main="Histogram of MetaScore",xlab="Meta Score")
+```
+Both plots suggesting that the data is normally distributed, as there is no clear evidence of skewness. Hence, the assumption of normality is also achieved.
+
+### Observed value of test-statistic
+
+```{r}
+# Applying Test
+corr_test <- cor.test(games_new$price,games_new$metascore)
+#extracting confidence intervals
+cat("Observed value of test-statistic =",round(corr_test$statistic,2),"\n")
+## Observed value of test-statistic = 8.23 
+
+cat("Correlation Coefficient=",round(corr_test$estimate,2),"\n")
+## Correlation Coefficient= 0.16
+
+
+```
+
+### P-value of observed test-statistic
+
+
+```{r}
+#extracting p-value
+cat("P-value of observed test-statistic =",corr_test$p.value,"\n")
+## P-value of observed test-statistic = 3.048598e-16 
+
+```
+
+### Conclusion of statistical test
+
+Since the P-value of observed test-statistics is found to be lower than 0.05 (level of significance), we reject the null hypothesis of `no linear relationship between two variables`.
+
+### Conclusion in non-statistical language
+
+The correlation coefficient is found to be `0.16`, suggesting that there is positive linear relationship between `Price` and `Meta Score`. The relationship is weak, but significant, as suggested by P-value. Based on this evidence, it can be concluded that increasing one variable will increase other variable. 
+
+
+## Comparing Two Population Means metascore in games priced above the median and games priced below the median
+
+### Null and alternative hypotheses 
+
+- Null Hypothesis: The mean metascore of games prices below the median has the same mean metascore as games prices above the median. 
+- Alternative Hypothesis: The mean metascore of games prices below the median does not have the same mean metascore as games prices above the median. 
+
+### Assumptions 
+
+1. We assume the sample of cases are randomly selected.
+2. We check normality by graphing the data by graphing the histogram of the data. 
+
+```{r, echo=FALSE}
+below_median <- subset(clean_df, price < 15) 
+above_median <- subset(clean_df, price >= 15)
+par(mfrow=c(1,2))
+hist(below_median$metascore)
+hist(above_median$metascore)
+```
+
+We can see that the distribution is slightly skewed, but clt should apply because the sample size is very large.
+
+### Observed value of test-statistic
+
+```{r}
+favstats(above_median$metascore)
+favstats(below_median$metascore)
+std_err_below_median = 11.02051/sqrt(1723)
+std_err_below_median
+ 
+mu =74.23784
+xbar = 70.62043
+ 
+ 
+zscore = (xbar - mu)/std_err_below_median
+zscore
+xpnorm(zscore, mean = 0, sd = 1, lower.tail = TRUE)
+t.test(above_median$metascore, below_median$metascore, var.equal = FALSE)
+
+```
+
+### P-value of observed test-statistic
+
+```{r}
+pvalue = 2*pnorm(zscore, mean = 0, sd = 1, lower.tail = TRUE)
+pvalue
+```
+
+### Conclusion of statistical test
+
+Since p < 0.05 we reject Ho and conclude Ha. 
+We have very strong evidence to conclude that the true mean metascore for videogames priced below the median is different from the mean metascore for videogames priced above the median.
+
+### Conclusion in non-statistical language
+
+The average metascore of videogames priced below the median is different from the average metascore for videogames priced above the median.
+
+## Correlation between the number of copies sold and the average metascore of the games 
+
+
+```{r, echo=FALSE}
+new_clean_df <- clean_df[complete.cases(clean_df), ]
+# remove all rows where NA exist
+
+attach(new_clean_df)
+```
+### Null and alternative hypotheses
+
+At this stage we want to see if the average score of games with 10 to 20 million users is the same as the average score of games with 5 to 10 million users. Therefore, we will try to use hypotheses test and t test to verify our assumption.
+
+Null hypotheses: the mean score of games with 10 to 20 million users is equal to the mean score of games with 5 to 10 million users.
+Alternative hypotheses: the mean score of games with 10 to 20 million users is differ from the mean score of games with 5 to 10 million users.
+
+### Assumptions 
+
+```{r, echo=FALSE}
+hist(new_clean_df$metascore, col=rainbow(15), 
+     main='Metascore', xlab='', ylab='Frequency')
+
+```
+
+According to this graph from step 2, we know that the data is random and it is similar to a normal distribution, with a slight right skew, and can be apply t test.
+
+### Observed value of test-statistic
+
+```{r, echo=FALSE}
+#Filter variables are stored together
+game_owners <- new_clean_df %>% 
+  group_by(owners) %>%
+  summarise(mean_score = mean(metascore),
+            sd_score = sd(metascore),
+            Frequency = as.vector(table(owners))) %>%
+  arrange(-mean_score)
+
+```
+
+```{r}
+game_owners
+```
+
+By analyzing the data, we can get the standard deviation, the mean and the number of samples.
+```{r}
+#Using T test
+
+u1 = 85.3
+u2 = 81.1
+n1 = 15
+n2 = 26
+sd_1 = 10.2
+sd_2 = 7.19
+
+t_sta = (u1-u2)/sqrt((sd_1*sd_1/n1)+(sd_2*sd_2/n2))
+t_df = 15-1
+
+```
+
+### P-value of observed test-statistic
+
+```{r}
+p_value = 2*pt(t_sta,t_df,lower.tail = FALSE)
+p_value
+```
+
+### Conclusion of statistical test
+
+Since P-value is 0.1815514 greater than 0.05, we fail to reject Null hypotheses.
+
+### Conclusion in non-statistical language
+
+We have no evidence to conclude that the mean score of games with 10 to 20 million users is differ from the mean score of games with 5 to 10 million users.
+
+
+
+
+## Statisticalrelationship between average playtime and metascore
+
+Find out whether there is a linear relationship between average playtime variable and metascore variable.
+
+### Null and alternative hypotheses
+
+- Null hypothesis: There is not a significant linear relationship(correlation) between average playtime and metascore in the sample.
+- Alternative hypothesis: There is a significant linear relationship (correlation) between average playtime and metascore in the sample.
+
+
+### Assumptions 
+
+```{r}
+  time_score<-new_clean_df%>%filter(average_playtime>10)%>%filter(average_playtime <70)%>%filter(metascore>60)
+  attach(time_score)
+  par(mfrow=c(2,2))
+  hist(time_score$average_playtime,xlab = "Average playtime",main = "Histogram of Average playtime")
+  hist(time_score$metascore,xlab = "Metascore",main="Histogram of Metascore")
+  plot(time_score$average_playtime,metascore,xlab = "average playtime",ylab = "metascore")
+```
+From the histograms of metascore and average playtime, the graphs are slightly skewed. Since the sample is very large, we can still consider the graphs are normally distributed. The scatter plot does not show there appears to be a moderately to strong positive
+linear association between average playtime and metascore. 
+
+### Observed value of test-statistic
+
+```{r}
+cor.test(time_score$average_playtime,time_score$metascore)
+linmodel<- lm(time_score$average_playtime~time_score$metascore)
+summary(linmodel)
+```
+The correlation test shows the test-statistic value is 0.60429 and the correlation coefficient is 0.02069681.
+
+### P-value of observed test-statistic
+
+The p-value of test-statistics is 0.8536.
+
+### Conclusion of statistical test
+
+Since the p-value = 0.8536 which is greater than the significance level 0.05 and the correlation coefficient is 0.033. Therefore, fail to reject the null hypothesis.There is insufficient evidence to conclude that there is a significant linear relationship between
+average playtime and metascore because the correlation coefficient is not significantly different from zero. 
+
+### Conclusion in non-statistical language
+
+The test did not show there is a positive linear relation between average playtime and metascore. Therefore, the higher levels of average playtime is not associated with higher levels of metascore.
+
+## Correlation between price and the copies sold 
+According to this code, and the statistical graph in part 2, the data of my research variables has been analyzed. In part 3, I will make hypotheses about two variables and continue to study the relationship between the two variables.
+
+### Null and alternative hypotheses
+
+- Null hypotheses: Changes in prices will affect the number of game players.
+- Alternative hypotheses: The price is low, the number of gamers is large, and the price is high, the number of gamers is small.
+
+### Assumptions 
+
+```{r}
+new_clean_df %>% select(game, price, owners, average_playtime, median_playtime, metascore)
+game_owners <- new_clean_df %>%
+  group_by(owners) %>%
+  summarise(mean_score = mean(metascore),
+        	mean_aveplaytime = mean(average_playtime),
+        	Frequency = as.vector(table(owners))) %>%
+  arrange(-mean_score)
+
+
+
+favstats(price)
+owners_bargraph <- ggplot(data = game_owners, mapping = aes(
+  x = fct_reorder(owners, mean_score),
+  y = Frequency ))
+owners_bargraph + geom_bar(stat = "identity")+theme(
+  axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)
+)+ labs(x = "Owners", y = "Number of games")
+hist(price)
+
+```
+
+### Conclusion
+
+According to the display of the image and simple linear regression, we can draw the correlation between the two sets of data and draw the final conclusion that the price of the game generally affects the number of game players. The increase in the price of the game will lead to a decrease in the number of game players.
+
+
+
+
+
+
+
+```{r, echo=FALSE}
+#Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```
+
+
