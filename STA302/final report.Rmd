@@ -1,0 +1,278 @@
+---
+title: "STA302H1F Final project"
+author:
+  - Xinhao Hou  
+  - 1005426549
+  - Yunkai Fan 
+  - 1005088584
+header-includes:
+   - \usepackage{float}
+output:
+  pdf_document:
+       latex_engine: xelatex
+  html_document: default
+---
+
+
+```{r, echo=FALSE,results="hide",message=FALSE,warning=FALSE}
+# please import the data set before running this r code 
+# set cwd to the same folder as the rmd file and put the data set in the same folder 
+data=read.csv('data.csv', header=TRUE)
+
+library(tidyverse)
+# cleaning some rows 
+data$STA302.hours..W3.[44]=5.5
+data$STA302.hours..W3.[124]=7.5
+data$STA302.hours..W4.[124]=7.5
+data$COVID.hours..W4.[124]=0.5
+# remove rows where quiz 4 mark = NA
+
+
+noquiz4na = which(!is.na(data$Quiz_4_score))
+data = data[noquiz4na,]
+
+datasize = length(data$X)
+```
+
+
+## Introduction 
+
+We are trying to predict the Quiz 4 score using data collected from the first 3 weeks of the course. We've collected the amount of hours studied for STA302, the amount of hours each student thought about COVID and the marks of the first 3 quizzes. I'm going to build several experimental models and see which data columns would have a reasonably strong relationship with the Quiz 4 score. Then I will build a new linear model with countries isolated to see if the ways each country deal with COVID effect the correlation between our variables. 
+
+
+
+
+## Exploratory data analysis 
+
+First I wanted to look at the variables to see if there are any obvious correlation between them. 
+```{r,echo=FALSE}
+
+
+pairs(~ Quiz_1_score +  Quiz_2_score + Quiz_3_score+ Quiz_4_score, data = data)
+pairs(~ COVID.hours..W1. +  COVID.hours..W2. + COVID.hours..W3., data = data)
+pairs(~ STA302.hours..W1. +  STA302.hours..W2. + as.numeric(STA302.hours..W3.), data = data)
+pairs(~ Quiz_1_score+ as.numeric(STA302.hours..W1.) + COVID.hours..W1., data = data)
+
+```
+
+
+As we can see there no obvious correlation between the quiz scores. There is a positive correlation between the number of hours spend studying STA302 and the number of hours thinking of COvID. This means if a student spend a lot of time thinking about COVID it is likely that student will also spending a lot of time thinking about COVID the next week. 
+
+Looking at the correlation graph doesn't show me any obvious distribution between the variables. I decided to calculate an average from the data collected in the first 3 weeks of class to see which variables have a strong correlation with the quiz 4 score. 
+
+
+
+
+
+```{r,echo=FALSE}
+avg_testscore <- vector(length=datasize)
+for(loop_index in 1:datasize){
+  numerator = 0
+  denominator = 0
+  if (!is.na(data$Quiz_1_score[loop_index])){
+    numerator = numerator + data$Quiz_1_score[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(data$Quiz_2_score[loop_index])){
+    numerator = numerator + data$Quiz_2_score[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(data$Quiz_3_score[loop_index])){
+    numerator = numerator + data$Quiz_3_score[loop_index]
+    denominator = denominator + 1
+  }
+  avg_testscore[loop_index] = numerator/denominator
+  
+}
+
+
+avg_covid <- vector(length=datasize)
+for(loop_index in 1:datasize){
+  numerator = 0
+  denominator = 0
+  if (!is.na(data$ COVID.hours..W1[loop_index])){
+    numerator = numerator + data$COVID.hours..W1[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(data$COVID.hours..W2[loop_index])){
+    numerator = numerator + data$COVID.hours..W2[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(data$COVID.hours..W3[loop_index])){
+    numerator = numerator + data$COVID.hours..W3[loop_index]
+    denominator = denominator + 1
+  }
+  avg_covid[loop_index] = numerator/denominator
+  
+}
+
+
+
+avg_study <- vector(length=datasize)
+
+
+for(loop_index in 1:datasize){
+  numerator = 0
+  denominator = 0
+  if (!is.na(as.numeric(data$STA302.hours..W1.)[loop_index])){
+    numerator = numerator + as.numeric(data$STA302.hours..W1.)[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(as.numeric(data$STA302.hours..W2.)[loop_index])){
+    numerator = numerator + as.numeric(data$STA302.hours..W2.)[loop_index]
+    denominator = denominator + 1
+  }
+  if (!is.na(as.numeric(data$STA302.hours..W3.)[loop_index])){
+    numerator = numerator + as.numeric(data$STA302.hours..W3.)[loop_index]
+    denominator = denominator + 1
+  }
+  avg_study[loop_index] = numerator/denominator
+  
+}
+
+
+pairs(~ avg_testscore + data$Quiz_4_score)
+pairs(~ avg_covid + data$Quiz_4_score)
+pairs(~ avg_study + data$Quiz_4_score)
+
+```
+
+
+After calculating the averages I decided to create some experimental linear models to see which variable have a strong correlation. 
+
+```{r,echo=FALSE}
+fit1 = lm(data$Quiz_4_score~avg_covid)
+summary(fit1)
+
+fit2 = lm(data$Quiz_4_score~avg_testscore)
+summary(fit2)
+
+fit3 = lm(data$Quiz_4_score~avg_study)
+summary(fit3)
+
+```
+
+## Model development
+
+After creating the linear models I found that the time spend studying STA302 and the time spend thinking about COVID have a very weak correlation with quiz 4 score. But I found the average quiz score have a moderately high correlation with quiz 4 score. With this information I decided to see the correlation between quiz 4 score and the scores from week 1 to 3. 
+
+
+
+```{r,echo=FALSE}
+
+fit4 = lm(data$Quiz_4_score~ data$Quiz_1_score+data$Quiz_2_score+data$Quiz_3_score)
+summary(fit4)
+
+```
+I see the quiz 3 score has the highest correlation and the quiz score of week 1 and 2 has a very low correlation to quiz 4. I decided to build a model with only the quiz 3 score to see if the correlation increases because I think because the correlation between the quiz 1 and quiz 2 score are so low tey are essentially adding error to our current model. 
+
+```{r,echo=FALSE}
+fit5 =lm(data$Quiz_4_score~data$Quiz_3_score)
+summary(fit5)
+
+```
+
+As I have suspected removing quiz 1 and quiz 2 score from our linear model slightly decreased our standard error and this shows me that quiz 1 and quiz 2 score wasn't really helping our model. 
+
+
+
+```{r, results="hide",echo=FALSE}
+
+fit5sq =lm(data$Quiz_4_score~data$Quiz_3_score+I(data$Quiz_3_score^2))
+summary(fit5sq)
+
+fit6=lm(data$Quiz_4_score~as.numeric(data$STA302.hours..W3.))
+summary(fit6)
+
+fit7=lm(data$Quiz_4_score ~ data$COVID.hours..W3.)
+summary(fit7)
+```
+I wanted to see if other variables from the same week as quiz 3 would help the model but I didn't anything significant. I also checked whether adding a quadratic term would help but it didn't improve the accuracy of the model produced.
+
+I also wanted to see if the hours spend studying and thinking about COVID effected the quiz 4 scores but it didn't show any significant relationship.
+
+```{r, results="hide", echo=FALSE}
+fit8=lm(data$Quiz_4_score~as.numeric(data$STA302.hours..W4.))
+summary(fit8)
+
+fit9=lm(data$Quiz_4_score ~ as.numeric(data$COVID.hours..W4.))
+summary(fit9)
+
+```
+
+Now I decided to isolate the categorical variable of which country the student is in. This is because different countries have different restrictions put in for COVID control. 
+
+
+
+```{r, echo=FALSE}
+table(data$Country)
+```
+
+From this table I can see students in our class are mostly from Canada and China so I decided to build 2 models to see if my assumption of quiz 3 score having a strong correlation with quiz 4 score applies to students in both countries. 
+
+```{r, results="hide", echo=FALSE}
+data_china = which(data$Country=="China" &!is.na(data$Quiz_3_score) &!is.na(data$Quiz_4_score))
+data_china = data[data_china,]
+data_china 
+
+data_canada = which((data$Country == "Canada"&!is.na(data$Quiz_3_score) &!is.na(data$Quiz_4_score)) | (data$Country == "canada"&!is.na(data$Quiz_3_score) &!is.na(data$Quiz_4_score)))
+data_canada = data[data_canada,]
+data_canada
+```
+
+```{r, results="hide", echo=FALSE}
+fit_china = lm(data_china$Quiz_4_score~data_china$Quiz_3_score)
+summary(fit_china)
+
+
+fit_canada = lm(data_canada$Quiz_4_score~ data_canada$Quiz_3_score)
+summary(fit_canada)
+```
+Both of these models shows a moderately strong correlation between quiz 3 scores. So I decided to perform a t-test with 95% confidence interval to see whether our estimator is significant. 
+
+```{r}
+
+qt(0.975, 56)
+abststar_china = abs(fit_china$coefficients[2])/summary(fit_china)$coefficients[2,2]
+abststar_china > qt(0.975, 56)
+
+qt(0.975, 93)
+abststart_canada = abs(fit_canada$coefficients[2])/summary(fit_canada)$coefficients[2,2]
+abststart_canada > qt(0.975, 93)
+
+```
+Both our models are proven to be statistically significant via the t-test. I decided to plot the data and see if there are any outliers effecting our model. 
+
+
+```{r,echo=FALSE}
+ggplot(data_china,aes(x=Quiz_3_score, y=Quiz_4_score))+geom_point()+
+  geom_smooth(method='lm',col="red", formula=y~x)
+
+ggplot(data_canada,aes(x=Quiz_3_score, y=Quiz_4_score))+geom_point()+
+  geom_smooth(method='lm',col="red", formula=y~x)
+
+
+plot(fit_china)
+plot(fit_canada)
+
+```
+
+
+After plotting the linear models, there seems to be no outliers that impact our models in a significant way and therefore removing outliers is not necessary. 
+
+## Conclusion 
+
+Our model provides a reasonable prediction of quiz 4 score using the score from the previous quiz using a simple linear model. In the real world this can help the instructor to predict a very rough estimate of how the class will do on the next quiz and whether adjusting the next assignments is necessary. The model we built showed an estimated correlation of 50% between the quiz 3 and quiz 4 score. This means for every mark a student would get on quiz 3 the same student would likely get half a mark quiz 4 in addition to the base grade/intercept term. The limitation of this model would be this model is built in a time where the world is in a pandemic and may not be accurate in predicting quiz scores after the world returns to normal. Also this model only provides a very rough estimate of quiz 4 marks with residual standard error up to 1.6 predicting a number from 0 to 10. In the real world this kind of error could lead to course average to be off a letter grade.  
+
+
+
+
+
+
+
+
+
+
+
+
+
